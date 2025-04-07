@@ -2,9 +2,12 @@ import 'package:combining_ui/pages/CategoryPage.dart';
 import 'package:combining_ui/pages/DetailPage.dart';
 import 'package:combining_ui/pages/HomePage.dart';
 import 'package:combining_ui/pages/ProfilePage.dart';
+import 'package:combining_ui/utils/globals.dart';
 //import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class HistoryPage extends StatefulWidget {
   final int userId;
@@ -15,88 +18,97 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  String selectedMonth = "Mar";
+  
+  String selectedMonth = "Apr";
   //int _selectedIndex = 2;
   //final Random _random = Random();
   final NumberFormat currencyFormat = NumberFormat("#,##0", "en_US");
   final Color themeColor = Color(0xFF1E3A8A);
 
+  bool isLoading = false; 
+
   final List<String> months = [
-    'Mar',
-    'Feb',
     'Jan',
-    'Dec',
-    'Nov',
-    'Oct',
-    'Sep',
-    'Aug',
-    'July',
-    'June',
-    'May',
+    'Feb',
+    'Mar',
     'Apr',
+    'May',
+    'June',
+    'July',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   final Map<String, Map<String, dynamic>> monthlyData = {};
 
   final List<Map<String, dynamic>> transactionTypes = [
-    {"name": "Food", "min": 10, "max": 200},
-    {"name": "Medical", "min": 50, "max": 500},
-    {"name": "Travel", "min": 100, "max": 5000},
-    {"name": "Tax", "min": 50, "max": 300},
-    {"name": "Game", "min": 20, "max": 150},
-    {"name": "Shopping", "min": 50, "max": 1000},
+    {"name": "Food"},
+    {"name": "Medical"},
+    {"name": "Travel"},
+    {"name": "Tax"},
+    {"name": "Game"},
+    {"name": "Shopping"},
   ];
 
   @override
   void initState() {
     super.initState();
-    generateMonthlyData();
+    fetchMonthlySummary();
   }
 
-  void generateMonthlyData() {
-    // Define fixed categories with corresponding fixed amounts
-    Map<String, int> fixedAmounts = {
-      "Food": 150,
-      "Medical": 300,
-      "Travel": 1000,
-      "Tax": 200,
-      "Game": 50,
-      "Shopping": 500
-    };
+  void fetchMonthlySummary() async {
+  setState(() {
+    isLoading = true;
+  });
 
-    for (String month in months) {
-      int goal = 10000;
-      int spent = 0;
-      List<Map<String, dynamic>> transactions = [];
+    int monthIndex = months.indexOf(selectedMonth) + 1;
+    int year = DateTime.now().year;
+    String formattedMonth = "$year-${monthIndex.toString().padLeft(2, '0')}";
 
-      for (var category in fixedAmounts.keys) {
-        int amount = fixedAmounts[category]!; // Get fixed amount
+    final String url =
+        '$baseURL/expense/monthly-summary?userId=${widget.userId}&month=$formattedMonth';
 
-        transactions.add({
-          "name": category, // Use fixed category names
-          "amount": amount.toString(), // Use fixed amount
-          "date":
-              "2024-${(months.indexOf(month) + 1).toString().padLeft(2, '0')}-15",
-          "note": "Fixed expense for $category"
-        });
+  try {
+    final response = await http.get(Uri.parse(url));
 
-        spent += amount; // Add to total spent
-      }
+    if (response.statusCode == 200) {
+      final body = json.decode(response.body);
 
-      monthlyData[month] = {
-        "goal": goal,
-        "spent": spent,
-        "saving": goal - spent,
-        "transactions": transactions
-      };
+      setState(() {
+        monthlyData[selectedMonth] = body['data']; // Backend sends MonthlySummaryDto
+        isLoading = false;
+      });
+    } else {
+      print('Error: ${response.statusCode}');
+      setState(() {
+        isLoading = false;
+      });
     }
+  } catch (e) {
+    print('Exception while fetching summary: $e');
+    setState(() {
+      isLoading = false;
+    });
+  }
+
   }
 
   @override
   Widget build(BuildContext context) {
-    var data = monthlyData[selectedMonth] ??
-        {"goal": 0, "spent": 0, "saving": 0, "transactions": []};
-    List transactions = data["transactions"];
+
+
+var data = monthlyData[selectedMonth] ?? {
+  "goal": 0,
+  "spent": 0,
+  "saving": 0,
+  "categories": []
+};
+
+List transactions = data["categories"] ?? [];
+
 
     return Scaffold(
       appBar: AppBar(
@@ -119,6 +131,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   onTap: () {
                     setState(() {
                       selectedMonth = month;
+                      fetchMonthlySummary();
                     });
                   },
                   child: Container(
@@ -201,7 +214,8 @@ class _HistoryPageState extends State<HistoryPage> {
                 return ListTile(
                   title: Text(transaction["name"]),
                   trailing: Text(
-                    currencyFormat.format(int.parse(transaction["amount"])),
+                    currencyFormat.format(
+                      double.tryParse(transaction["amount"].toString())?.toInt() ?? 0 ),
                     style: TextStyle(
                         color: themeColor,
                         fontWeight: FontWeight.bold,
