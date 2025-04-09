@@ -10,7 +10,8 @@ import 'package:combining_ui/pages/FAQPage.dart';
 import 'package:combining_ui/pages/ContactUsPage.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:combining_ui/utils/globals.dart'; // for baseURL
+import 'package:combining_ui/utils/globals.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // for baseURL
 
 class ProfilePage extends StatefulWidget {
   final int userId;
@@ -256,14 +257,17 @@ class _ProfilePageState extends State<ProfilePage> {
                     );
                   }),
                   buildProfileButton(Icons.logout_rounded, "Log out",
-                      onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              SignInPage()), // Navigate to Sign-in Page
-                    );
-                  }),
+                      onTap: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.remove('userId'); // or prefs.clear() if you want everything gone
+
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (context) => SignInPage()),
+                          (route) => false, // remove all previous routes
+                        );
+                      },
+                  ),
                 ],
               ),
             ),

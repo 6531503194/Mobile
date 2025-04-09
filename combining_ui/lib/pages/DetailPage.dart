@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 
 class DetailPage extends StatelessWidget {
-  final String name;
-  final String amount;
-  final String date;
-  final String note;
+  final String categoryName;
+  final List<Map<String, dynamic>> expenses;
 
-  DetailPage(
-      {required this.name,
-      required this.amount,
-      required this.date,
-      required this.note});
+  const DetailPage({
+    required this.categoryName,
+    required this.expenses,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Detail"),
+        title: Text(
+          "Details - $categoryName",
+          style: TextStyle(color: Colors.white), 
+        ),
+        backgroundColor: Color(0xFF1E3A8A),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         centerTitle: true,
@@ -26,26 +27,35 @@ class DetailPage extends StatelessWidget {
       body: Padding(
         padding: EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildDetailRow("Name", name),
-                    _buildDetailRow("Date", date),
-                    _buildDetailRow("Amount", "\$$amount"),
-                    _buildDetailRow("Note", note),
-                  ],
-                ),
-              ),
+            Expanded(
+              child: expenses.isEmpty
+                  ? Center(child: Text("No expenses for this category"))
+                  : ListView.builder(
+                      itemCount: expenses.length,
+                      itemBuilder: (context, index) {
+                        final expense = expenses[index];
+                        return Card(
+                          elevation: 3,
+                          margin: EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildDetailRow("Date", expense["date"] ?? "Unknown"),
+                                _buildDetailRow("Amount", "\$${expense["amount"] ?? 0}"),
+                                _buildDetailRow("Note", expense["description"] ?? "No note"),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -79,8 +89,7 @@ class DetailPage extends StatelessWidget {
                             Text(
                               "Detail is already saved in your gallery",
                               textAlign: TextAlign.center,
-                              style:
-                                  TextStyle(fontSize: 14, color: Colors.grey),
+                              style: TextStyle(fontSize: 14, color: Colors.grey),
                             ),
                           ],
                         ),
@@ -107,12 +116,14 @@ class DetailPage extends StatelessWidget {
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
-          Text(value),
+          Expanded(
+            child: Text(value, textAlign: TextAlign.end),
+          ),
         ],
       ),
     );

@@ -221,19 +221,51 @@ List transactions = data["categories"] ?? [];
                         fontWeight: FontWeight.bold,
                         fontSize: 16),
                   ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailPage(
-                          name: transaction["name"],
-                          amount: transaction["amount"],
-                          date: transaction["date"],
-                          note: transaction["note"],
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: () async {
+                  int monthIndex = months.indexOf(selectedMonth) + 1;
+                  int year = DateTime.now().year;
+                  String formattedMonth = "$year-${monthIndex.toString().padLeft(2, '0')}";
+                  String categoryName = transaction["name"];
+
+                  final detailUrl = '$baseURL/expense/details?userId=${widget.userId}&month=$formattedMonth&category=$categoryName';
+
+                  try {
+                    final detailResponse = await http.get(Uri.parse(detailUrl));
+
+                    if (detailResponse.statusCode == 200) {
+                      final detailBody = json.decode(detailResponse.body);
+                      final List details = detailBody["data"];
+
+                      if (details.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailPage(
+                              categoryName: categoryName,
+                              expenses: List<Map<String, dynamic>>.from(details),
+                            ),
+                          ),
+                        );
+                      }else {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text("No details available for this category."),
+                        ));
+                      }
+                    } else {
+                      print('Detail fetch failed: ${detailResponse.statusCode}');
+                    }
+                  } catch (e) {
+                    print('Exception during detail fetch: $e');
+                  }
+                },
+                  leading: CircleAvatar(
+                    backgroundColor: themeColor,
+                    child: Icon(
+                      Icons.attach_money,
+                      color: Colors.white,
+                    ),
+                  ),
+
                 );
               },
               separatorBuilder: (context, index) => Divider(),

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:combining_ui/utils/globals.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 class SignInPage extends StatefulWidget {
   @override
@@ -16,68 +18,72 @@ class _SignInPageState extends State<SignInPage> {
   bool _rememberMe = false;
 
   Future<void> _login() async {
-    print('Hello');
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+  final email = _emailController.text.trim();
+  final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Please enter both email and password."),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
+  if (email.isEmpty || password.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Please enter both email and password."),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    return;
+  }
 
-    final url = Uri.parse('$baseURL/user/login');
+  final url = Uri.parse('$baseURL/user/login');
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "email": email,
-          "password": password,
-        }),
-      );
+  try {
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"email": email, "password": password}),
+    );
 
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      final int? userId = decoded['userId'];
 
-        final int? userId = decoded['userId']; // ✅ extract userId
+      if (userId != null) {
+        // ✅ SAVE SESSION!
+        await saveUserSession(userId);
 
-        if (userId != null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => HomePage(userId: userId), // ✅ pass it
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Login succeeded but user ID not found."),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        // ✅ Navigate to Home
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomePage(userId: userId),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Login failed: ${response.body}"),
+            content: Text("Login succeeded but user ID not found."),
             duration: Duration(seconds: 2),
           ),
         );
       }
-    } catch (e) {
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Error connecting to server: $e"),
+          content: Text("Login failed: ${response.body}"),
           duration: Duration(seconds: 2),
         ),
       );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Error connecting to server: $e"),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+  Future<void> saveUserSession(int userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('userId', userId);
   }
 
   @override

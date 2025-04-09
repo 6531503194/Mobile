@@ -26,8 +26,22 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+      fetchCategories();
     fetchUser();
   }
+
+  void fetchCategories() async {
+  final response = await http.get(Uri.parse('$baseURL/categories/user/${widget.userId}'));
+
+  if (response.statusCode == 200) {
+    final body = json.decode(response.body);
+    setState(() {
+        categories = List<Map<String, dynamic>>.from(body['data']);
+    });
+  } else {
+    print("Failed to load categories");
+  }
+}
 
   Future<void> fetchUser() async {
     try {
@@ -60,39 +74,110 @@ class _HomePageState extends State<HomePage> {
     "Game": Icons.sports_esports,
   };
 
-  IconData _getCategoryIcon(String category) {
-    return categoryIcons[category] ?? Icons.category;
+IconData getCategoryIcon(String name) {
+  switch (name.toLowerCase()) {
+    case 'food':
+      return Icons.fastfood;
+    case 'shopping':
+      return Icons.shopping_cart;
+    case 'travel':
+      return Icons.flight;
+    case 'medical':
+      return Icons.local_hospital;
+    case 'tax':
+      return Icons.attach_money;
+    default:
+      return Icons.category;
+  }
+}
+
+
+  List<Map<String, dynamic>> categories = [];
+    
+  void addCategory(String name) async {
+    final url = Uri.parse('$baseURL/categories/add');
+    final newCategory = {
+      "name": name,
+      "userId": widget.userId,
+      "isDefault": false
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(newCategory),
+      );
+
+      final responseBody = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseBody['success']) {
+        setState(() {
+          categories.add(Map<String, dynamic>.from(responseBody['data']));
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Category added!")),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed: ${responseBody['message']}")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Network error: $e")),
+      );
+    }
   }
 
-  List<String> categories = ["Food", "Shopping", "Medical", "Travel", "Tax"];
 
-  void addCategory(String categoryName) {
-    setState(() {
-      categories.add(categoryName);
-    });
+  void removeCategory(Map<String, dynamic> category) async {
+    final categoryId = category['id'];
+
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseURL/categories/user/${widget.userId}/category/$categoryId'),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          categories.removeWhere((c) => c['id'] == categoryId);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Category deleted")),
+        );
+      } else {
+        final error = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed: ${error["message"]}")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error deleting category: $e")),
+      );
+    }
   }
 
-  void removeCategory(String categoryName) {
-    setState(() {
-      categories.remove(categoryName);
-    });
-  }
 
-  void _openTransactionForm(String category) async {
+  void _openTransactionForm(String categoryName, int categoryId) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => TransactionForm(
-          category: category,
+          categoryName: categoryName,
+          categoryId: categoryId,
           userId: widget.userId,
         ),
       ),
     );
 
     if (result == true) {
-      fetchUser(); // 👈 Reload the user and balance
+      fetchUser();
     }
   }
+
 
 
   void _showOverlayEdit(BuildContext context) {
@@ -506,17 +591,20 @@ class _HomePageState extends State<HomePage> {
                   ),
                   itemBuilder: (context, index) {
                     if (index < categories.length) {
-                      String category = categories[index];
+                      final category = categories[index];
+                      final categoryName = category['name'];
+                      final categoryId = category['id'];
+
                       return GestureDetector(
-                        onTap: () => _openTransactionForm(category),
+                        onTap: () => _openTransactionForm(categoryName, categoryId),
                         child: Stack(
                           clipBehavior: Clip.none,
                           alignment: Alignment.topRight,
                           children: [
                             CategoryButton(
-                              icon: _getCategoryIcon(category),
-                              label: category,
-                              onTap: () => _openTransactionForm(category),
+                              icon: getCategoryIcon(categoryName),
+                              label: categoryName,
+                              onTap: () => _openTransactionForm(categoryName, categoryId),
                             ),
                             if (isEditing)
                               Positioned(
@@ -688,11 +776,15 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
 }
 
 class TransactionForm extends StatefulWidget {
-  final String category;
+  final String categoryName;
+  final int categoryId;
   final int userId;
 
-  TransactionForm({required this.category, required this.userId});
-
+  TransactionForm({
+    required this.categoryName,
+    required this.categoryId,
+    required this.userId,
+  });
 
   @override
   _TransactionFormState createState() => _TransactionFormState();
@@ -741,26 +833,27 @@ int _getCategoryId(String category) {
       return 3;
       case "travel":
       return 4;
-    case "Tax":
+    case "tax":
       return 5;
     case "Customize":
       return 6;
     default:
-      return 0; // or throw
+      return 0; 
   }
 }
 
 
-  final expenseData = {
-    "userId": widget.userId,
-    "categoryId": _getCategoryId(widget.category), // ✅ Fix this
-    "amount": amount,
-    "description": _noteController.text,
-    "date": _dateController.text, // Must be in yyyy-MM-dd format
-  };
+final expenseData = {
+  "userId": widget.userId,
+  "categoryId": widget.categoryId, 
+  "amount": amount,
+  "description": _noteController.text,
+  "date": _dateController.text,
+};
+
 
   final url = Uri.parse('$baseURL/expense/add');
-  print('Sending to $url with data: $expenseData'); // Debug log
+  print('Sending to $url with data: $expenseData'); 
 
 
   try {
@@ -803,7 +896,7 @@ int _getCategoryId(String category) {
           child: Icon(Icons.arrow_back, color: Colors.white),
         ),
         title: Text(
-          'Add Transaction - ${widget.category}',
+          'Add Transaction - ${widget.categoryName}',
           style: TextStyle(color: Colors.white),
         ),
         backgroundColor: Color(0xE6074493),
@@ -824,7 +917,7 @@ int _getCategoryId(String category) {
                     Icon(Icons.fastfood_outlined),
                     SizedBox(width: 20),
                     Text(
-                      widget.category,
+                      widget.categoryName,
                       style: TextStyle(
                         color: Colors.black,
                         fontSize: 16,
