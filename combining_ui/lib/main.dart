@@ -17,6 +17,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tz.initializeTimeZones();
   await _initNotifications();
+  await scheduleDailyNotification();
 
   runApp(
     ChangeNotifierProvider(
@@ -136,20 +137,22 @@ Future<void> scheduleDailyNotification() async {
     priority: Priority.high,
   );
 
-  const iosDetails = DarwinNotificationDetails();
-
   const notificationDetails = NotificationDetails(
-    android: androidDetails,
-    iOS: iosDetails,
-  );
+    android: androidDetails
+    );
 
   final now = tz.TZDateTime.now(tz.local);
+
+ //Uncomment the line below to test the notification after 1 minute
+ // final scheduledDate = now.add(const Duration(minutes: 1));
+
+//Comment These lines to test the notification after 1 minute
   var scheduledDate = tz.TZDateTime(
     tz.local,
     now.year,
     now.month,
     now.day,
-    21,
+    21, // (9 pm) 
     0,
     0,
   );
