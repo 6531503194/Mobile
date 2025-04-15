@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:combining_ui/pages/DarkModePage.dart';
 import 'package:combining_ui/pages/IconColorPage.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
 
 class MoreSettingPage extends StatefulWidget {
   @override
@@ -11,7 +16,77 @@ class _MoreSettingPageState extends State<MoreSettingPage> {
   final Color primaryColor = const Color(0xFF074493);
   bool isNotificationOn = true;
   String darkModeStatus = "Off";
-  String iconColor = "Blue"; // Default icon color
+  String iconColor = "Blue"; 
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+    
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationSetting();
+  }
+
+  void _loadNotificationSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isEnabled = prefs.getBool('notificationEnabled') ?? true;
+    setState(() {
+      isNotificationOn = isEnabled;
+    });
+    if (isNotificationOn) {
+      await _scheduleDailyNotification();
+    } else {
+      await _cancelNotification();
+    }
+  }
+
+  Future<void> _scheduleDailyNotification() async {
+    const androidDetails = AndroidNotificationDetails(
+      'daily_reminder_channel_id',
+      'Daily Reminders',
+      channelDescription: 'Hey there! Don\'t forget to jot down your expenses for today. 💸 9 PM is money-time!',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const iosDetails = DarwinNotificationDetails();
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final now = DateTime.now();
+    final scheduledDate = tz.TZDateTime.from(
+      now.add(const Duration(minutes: 1)), 
+      tz.local,
+    );  
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      0,
+      'Reminder',
+      "Don't forget to record your expense!",
+      scheduledDate,
+      notificationDetails,
+      androidAllowWhileIdle: true,
+      matchDateTimeComponents: DateTimeComponents.time,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  Future<void> _cancelNotification() async {
+    await flutterLocalNotificationsPlugin.cancel(0);
+  }
+
+  void _updateNotificationSetting(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setBool('notificationEnabled', value);
+    if (value) {
+      await _scheduleDailyNotification();
+    } else {
+      await _cancelNotification();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +119,7 @@ class _MoreSettingPageState extends State<MoreSettingPage> {
                   setState(() {
                     isNotificationOn = value;
                   });
+                  _updateNotificationSetting(value);
                 },
                 activeColor: primaryColor,
               ),
