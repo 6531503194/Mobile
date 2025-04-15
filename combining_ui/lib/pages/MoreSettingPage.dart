@@ -57,10 +57,21 @@ class _MoreSettingPageState extends State<MoreSettingPage> {
     );
 
     final now = DateTime.now();
+    //comment these after testing
     final scheduledDate = tz.TZDateTime.from(
       now.add(const Duration(minutes: 1)), 
       tz.local,
     );  
+//uncomment these after testing the notification after 1 minute
+  //     var scheduledDate = tz.TZDateTime(
+  //   tz.local,
+  //   now.year,
+  //   now.month,
+  //   now.day,
+  //   21, // (9 pm) 
+  //   0,
+  //   0,
+  // );
 
     await flutterLocalNotificationsPlugin.zonedSchedule(
       0,
